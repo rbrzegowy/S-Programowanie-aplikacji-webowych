@@ -1,0 +1,2 @@
+zakończone na any/unknown
+do zrobienia: never, własne typy
