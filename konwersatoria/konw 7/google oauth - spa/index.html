@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Google OAuth – SPA (Frontend Only)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #f0f2f5;
+      }
+      .card {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        min-width: 320px;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        color: #888;
+        font-size: 13px;
+        margin-bottom: 24px;
+      }
+      /* Google Sign-In button is rendered by GIS */
+      #g_id_signin {
+        display: flex;
+        justify-content: center;
+      }
+
+      /* Profile section */
+      #profile {
+        display: none;
+      }
+      #profile img {
+        border-radius: 50%;
+        width: 96px;
+        height: 96px;
+        margin-bottom: 16px;
+        border: 3px solid #e0e0e0;
+      }
+      #profile h2 {
+        margin: 0 0 6px;
+        color: #222;
+      }
+      #profile .email {
+        color: #555;
+        margin: 4px 0;
+      }
+      #profile .gid {
+        font-size: 11px;
+        color: #bbb;
+        margin-top: 4px;
+      }
+      .btn-logout {
+        display: inline-block;
+        margin-top: 24px;
+        padding: 10px 24px;
+        background: #e53935;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      .btn-logout:hover {
+        background: #b71c1c;
+      }
+      .error {
+        color: #c62828;
+        margin-top: 16px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <div class="card">
+      <h1>Google OAuth – SPA</h1>
+      <p class="subtitle">Frontend-only, no backend required</p>
+
+      <div id="login">
+        <!-- Tu wrzucamy google client id (id klienta oauth z console.cloud.google.com) -->
+        <div id="g_id_onload" data-client_id="GOOGLE_OAUTH_CLIENT_ID" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+        <div
+          class="g_id_signin"
+          data-type="standard"
+          data-size="large"
+          data-theme="outline"
+          data-text="sign_in_with"
+          data-shape="rectangular"
+          data-logo_alignment="left"
+        ></div>
+        <p id="error" class="error"></p>
+      </div>
+
+      <div id="profile">
+        <img id="avatar" src="" alt="Avatar" />
+        <h2 id="name"></h2>
+        <p class="email" id="email"></p>
+        <p class="gid" id="gid"></p>
+        <button class="btn-logout" onclick="signOut()">Logout</button>
+      </div>
+    </div>
+
+    <script>
+      function parseJwt(token) {
+        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+        const json = atob(base64)
+        return JSON.parse(json)
+      }
+
+      // Ta funkcja jest wywoływana przez Google Sign-In po udanym logowaniu
+      function handleCredentialResponse(response) {
+        try {
+          const payload = parseJwt(response.credential)
+          showProfile({
+            id: payload.sub,
+            name: payload.name,
+            email: payload.email,
+            avatar: payload.picture,
+          })
+          sessionStorage.setItem('gsi_credential', response.credential)
+        } catch (e) {
+          document.getElementById('error').textContent = 'Failed to parse user info.'
+        }
+      }
+
+      function showProfile(user) {
+        document.getElementById('login').style.display = 'none'
+        const profile = document.getElementById('profile')
+        profile.style.display = 'block'
+        document.getElementById('avatar').src = user.avatar
+        document.getElementById('name').textContent = user.name
+        document.getElementById('email').textContent = user.email
+        document.getElementById('gid').textContent = 'Google ID: ' + user.id
+      }
+
+      function signOut() {
+        sessionStorage.removeItem('gsi_credential')
+        // Revoke the Google session
+        google.accounts.id.disableAutoSelect()
+        document.getElementById('profile').style.display = 'none'
+        document.getElementById('login').style.display = 'block'
+      }
+
+      // w session storage przechowujemy dane logowania
+      window.addEventListener('load', () => {
+        const stored = sessionStorage.getItem('gsi_credential')
+        if (stored) {
+          try {
+            const payload = parseJwt(stored)
+            // Check token expiry
+            if (payload.exp * 1000 > Date.now()) {
+              showProfile({
+                id: payload.sub,
+                name: payload.name,
+                email: payload.email,
+                avatar: payload.picture,
+              })
+              return
+            }
+          } catch (_) {}
+          sessionStorage.removeItem('gsi_credential')
+        }
+      })
+    </script>
+  </body>
+</html>
